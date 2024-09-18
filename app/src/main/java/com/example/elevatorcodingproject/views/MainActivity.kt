@@ -1,27 +1,25 @@
 package com.example.elevatorcodingproject.views
 
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -30,9 +28,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.text.isDigitsOnly
@@ -46,32 +44,55 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            var textFieldState by remember {
+            var elevatorDestinationFloorState by remember {
                 mutableStateOf("")
             }
 
-            var liftState by remember {
-                mutableStateOf(0)
+            var elevatorCurrentFloorState by remember {
+                mutableIntStateOf(0)
             }
 
             var progressbarState by remember {
-                mutableStateOf(0)
+                mutableIntStateOf(0)
             }
 
-            Row(
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                verticalArrangement = Arrangement.SpaceEvenly,
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column(
-                    verticalArrangement = Arrangement.SpaceEvenly,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
+                showLiftState(liftFloorNumber = elevatorCurrentFloorState)
+
+                Row(verticalAlignment = Alignment.Top) {
                     Button(modifier = Modifier
                         .height(70.dp)
                         .padding(10.dp), onClick = {
+                        var destinationFloor = 0
+                        try {
+                            destinationFloor = elevatorDestinationFloorState.toInt()
+                        } catch (_: Exception) {
+                        }
 
-                        moveTheElevator(liftState, textFieldState.toInt(), ElevatorState.MOVE_UP) {
-
+                        if (elevatorCurrentFloorState > destinationFloor) {
+                            lifecycleScope.launch {
+                                progressbarState = 1
+                                moveDown(elevatorCurrentFloorState, destinationFloor, {
+                                    elevatorCurrentFloorState = it
+                                }, {
+                                    progressbarState = 0
+                                    elevatorDestinationFloorState = ""
+                                })
+                            }
+                        } else {
+                            lifecycleScope.launch {
+                                progressbarState = 1
+                                moveUp(elevatorCurrentFloorState, destinationFloor, {
+                                    elevatorCurrentFloorState = it
+                                }, {
+                                    progressbarState = 0
+                                    elevatorDestinationFloorState = ""
+                                })
+                            }
                         }
                     }) {
                         Text(text = "Up")
@@ -81,42 +102,106 @@ class MainActivity : ComponentActivity() {
                         .height(70.dp)
                         .padding(10.dp),
                         onClick = {
-                            moveTheElevator(liftState, textFieldState.toInt(), ElevatorState.MOVE_DOWN) {
 
+                            var destinationFloor = 0
+                            try {
+                                destinationFloor = elevatorDestinationFloorState.toInt()
+                            } catch (ex: Exception) {
+                                print(ex.message)
+                            }
+                            if (elevatorCurrentFloorState < destinationFloor) {
+                                lifecycleScope.launch {
+                                    progressbarState = 1
+                                    moveUp(elevatorCurrentFloorState, destinationFloor, {
+                                        elevatorCurrentFloorState = it
+                                    }, {
+                                        progressbarState = 0
+                                        elevatorDestinationFloorState = ""
+                                    })
+                                }
+                            } else {
+                                lifecycleScope.launch {
+                                    progressbarState = 1
+                                    moveDown(elevatorCurrentFloorState, destinationFloor, {
+                                        elevatorCurrentFloorState = it
+                                    }, {
+                                        progressbarState = 0
+                                        elevatorDestinationFloorState = ""
+                                    })
+                                }
                             }
                         }) {
                         Text(text = "Down")
                     }
-                    Spacer(modifier = Modifier.height(10.dp))
+
                     IndeterminateCircularIndicator(progressbarState)
-                    Spacer(modifier = Modifier.height(10.dp))
-                    TextField(value = textFieldState,
-                        label = {
-                            Text("Enter your floor between 0-10")
-                        }, onValueChange = {
-                            try {
-                                if(it.isDigitsOnly()) {
+                }
 
+                val keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number,
+                    imeAction = ImeAction.Done
+                )
+                TextField(value = elevatorDestinationFloorState,
+                    label = {
+                        Text("Enter your floor between 0-10")
+                    }, onValueChange = {
+                        try {
+                            if (it.isDigitsOnly()) {
+                                if(it.toInt() in 0..10) {
+                                    elevatorDestinationFloorState = it
+                                } else {
+                                    elevatorDestinationFloorState = ""
                                 }
-                            } catch (ex: Exception) {
-                                print("Something went wrong")
+                            } else {
+                                print("Please enter digits")
+                                elevatorDestinationFloorState = ""
                             }
-                        },
-                        singleLine = true,
-                        modifier = Modifier
-                            .fillMaxWidth(0.6f)
-                    )
-                }
-
-                LaunchedEffect(key1 = progressbarState) {
-                    lifecycleScope.launch {
-                        delay(2000)
-                        progressbarState = 0
-                    }
-                }
-                showLiftState(liftFloorNumber = liftState)
+                        } catch (ex: Exception) {
+                            print("Something went wrong")
+                            elevatorDestinationFloorState = ""
+                        }
+                    },
+                    singleLine = true,
+                    keyboardOptions = keyboardOptions,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                )
             }
         }
+    }
+
+    private suspend fun moveUp(
+        elevatorCurrentFloorState: Int,
+        destinationFloor: Int,
+        currentFloor: (Int) -> Unit,
+        onComplete: () -> Unit
+    ) {
+        lifecycleScope.launch {
+            var currentFloor = elevatorCurrentFloorState
+            while (currentFloor < destinationFloor) {
+                delay(1000)
+                currentFloor += 1
+                print("Elevator is moving Down to floor: $currentFloor")
+                currentFloor(currentFloor)
+            }
+            onComplete()
+        }
+    }
+
+    private suspend fun moveDown(
+        elevatorCurrentFloorState: Int,
+        destinationFloor: Int,
+        currentFloor: (Int) -> Unit,
+        onComplete: () -> Unit
+    ) {
+        var currentFloor = elevatorCurrentFloorState
+        while (currentFloor > destinationFloor) {
+            delay(1000)
+            currentFloor -= 1
+            print("Elevator is moving Down to floor: $currentFloor")
+            currentFloor(currentFloor)
+        }
+        onComplete()
     }
 
     @Composable
@@ -124,8 +209,7 @@ class MainActivity : ComponentActivity() {
         if (liftFloorNumber in 0..10) {
             Text(
                 modifier = Modifier
-                    .fillMaxWidth(0.5f)
-                    .fillMaxHeight(0.3f)
+                    .fillMaxWidth()
                     .background(Color.Green)
                     .padding(10.dp),
                 textAlign = TextAlign.Center,
@@ -142,64 +226,11 @@ class MainActivity : ComponentActivity() {
         if (progressbarState <= 0 || progressbarState >= 10) return
 
         CircularProgressIndicator(
-            modifier = Modifier.width(64.dp),
+            modifier = Modifier
+                .width(64.dp)
+                .padding(10.dp),
             color = MaterialTheme.colorScheme.secondary,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant
         )
-    }
-
-    private fun moveTheElevator(currentFloor: Int, destinationFloor: Int, direction: ElevatorState , elevatorReached: () -> Unit) {
-        lifecycleScope.launch {
-            if (currentFloor == destinationFloor) {
-                System.out.println("Elevator is at required floor")
-            } else if (direction == ElevatorState.MOVE_UP) {
-                moveUp(currentFloor, destinationFloor)
-            } else {
-                moveDown(currentFloor, destinationFloor)
-            }
-
-            elevatorReached()
-        }
-    }
-
-    suspend fun moveUp(currentFloor: Int, destinationFloor: Int) {
-        var floorNow = currentFloor
-        if (currentFloor < destinationFloor) {
-            while (currentFloor < destinationFloor) {
-                floorNow += 1
-                delay(1000)
-                System.out.println("Elevator is moving up to floor: " + destinationFloor);
-            }
-        } else if (currentFloor > destinationFloor) {
-            System.out.println("Invalid floor");
-        } else {
-            System.out.println("Already at  floor")
-        }
-
-        return
-    }
-
-    suspend fun moveDown(currentFloor: Int, destinationFloor: Int) {
-        var floorNow = currentFloor
-        if (currentFloor > destinationFloor) {
-            while (currentFloor > destinationFloor) {
-                floorNow -= 1
-                delay(1000)
-                System.out.println("Elevator is moving up to floor: " + destinationFloor);
-            }
-        } else if(currentFloor < destinationFloor) {
-            System.out.println("Invalid Floor")
-        } else {
-            System.out.println("Already at top floor");
-        }
-        return
-    }
-
-    enum class ElevatorState {
-        MOVE_UP, MOVE_DOWN, AT_REST
-    }
-
-    private fun print(msg: String) {
-        Log.d("MainActiviyt", msg)
     }
 }
